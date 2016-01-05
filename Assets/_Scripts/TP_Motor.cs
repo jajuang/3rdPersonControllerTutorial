@@ -9,9 +9,20 @@ public class TP_Motor : MonoBehaviour {
 	*/
 
 	public static TP_Motor _instance;
-	public float MoveSpeed = 10f;
-	
+	public float forwardSpeed = 10f;
+	public float backwardsSpeed = 10f;
+	public float strafingSpeed = 10f;
+	public float slideSpeed = 10f;
+	public float jumpSpeed = 6f;
+	public float gravity = 21f;
+	public float terminalVelocity = 20f;
+	public float slideThreshold = 0.7f;
+	public float maxControllableSlideMagnitude = 0.4f; // the max angle you can move up on (without jumping)
+
+	private Vector3 slideDirection;
+
 	public Vector3 MoveVector { get; set; }
+	public float VerticalVelocity { get; set; }
 
 
 	void Awake() 
@@ -28,28 +39,89 @@ public class TP_Motor : MonoBehaviour {
 	
 	void ProcessMotion() 
 	{
+
 		// Transform MoveVector to World Space (relative to camera orientation, Also depends on SnapAlignCharacterWithCamera() for ref of rotation)
 		MoveVector = transform.TransformDirection (MoveVector);
-		//MoveVector = Camera.main.transform.TransformDirection(MoveVector);
 		
-		// Normalize MoveVector if Magnitude > 1
-		// Normalize fixes diagonal movement (Diagonal movement is faster than normal. So we use this to normalize diagonal speed)
+		// For diagonal movement. Normalize MoveVector if Magnitude > 1 (Normalize fixes diagonal movement. Diagonal movement is faster than normal. So we use this to normalize diagonal speed)
 		if (MoveVector.magnitude > 1) 
 		{
 			MoveVector = Vector3.Normalize(MoveVector);
 		}
+
+		// Apply sliding if applicable
+		ApplySlide();
 		
 		// Multiply MoveVector by MoveSpeed
-		MoveVector *= MoveSpeed;
+		MoveVector *= MoveSpeed();
 
-		// Multiply MoveVector by DeltaTime (meters/frame to meters/sec)
-		MoveVector *= Time.deltaTime;
+		// Reapply VerticalVelocity to MoveVector.y
+		MoveVector = new Vector3(MoveVector.x, VerticalVelocity, MoveVector.z);
+
+		// Apply gravity
+		ApplyGravity();
 
 		// Move the character
-		TP_Controller._characterController.Move(MoveVector);
+		TP_Controller._characterController.Move(MoveVector * Time.deltaTime);
 	}
 
-	// checks if we are moving
+
+	void ApplyGravity() 
+	{
+		if (MoveVector.y > -terminalVelocity) {
+			MoveVector = new Vector3(MoveVector.x, (MoveVector.y - gravity * Time.deltaTime), MoveVector.z);
+		}
+		if (TP_Controller._characterController.isGrounded && MoveVector.y < -1) {
+			MoveVector = new Vector3(MoveVector.x, -1, MoveVector.z);
+		}
+	}
+
+
+	void ApplySlide()
+	{	
+		// Are we even grounded?
+		if (!TP_Controller._characterController.isGrounded) {
+			return;
+		}
+
+		// Zero out slide direction (to reset the calcuation)
+		slideDirection = Vector3.zero;
+
+		// Cast a ray straight down and store the normal of what we are standing on 
+		RaycastHit hitInfo;
+
+		// Our feet hit a thing
+		if ( Physics.Raycast((transform.position), Vector3.down, out hitInfo) ) 
+		{
+			// Check Y of the normal and see if we can slide (Normal = a line perpendicular to a surface)
+			if (hitInfo.normal.y < slideThreshold)
+			{
+				// Store slide direction
+				slideDirection = new Vector3(hitInfo.normal.x, -hitInfo.normal.y, hitInfo.normal.z);
+			}
+		}
+
+		// Angle too steep?
+		if (slideDirection.magnitude < maxControllableSlideMagnitude)
+		{
+			MoveVector += slideDirection;
+		}
+		else
+		{
+			// Too steep, Can't go up angle
+			MoveVector = slideDirection;
+		}
+
+	}
+
+	public void Jump()
+	{
+		if (TP_Controller._characterController.isGrounded) {
+			VerticalVelocity = jumpSpeed;
+		}
+	}
+
+
 	void SnapAlignCharacterWithCamera() 
 	{ 
 		// If moving
@@ -64,4 +136,50 @@ public class TP_Motor : MonoBehaviour {
 		}
 	}
 
+	// Changes the move speed based on direction
+	float MoveSpeed()
+	{
+		float myMoveSpeed = 0f;
+
+		switch (TP_Animator._instance.MoveDirection) 
+		{
+			case TP_Animator.Direction.Stationary:
+				myMoveSpeed = 0;
+				break;
+			case TP_Animator.Direction.Forward:
+				myMoveSpeed = forwardSpeed;
+				break;
+			case TP_Animator.Direction.Backward:
+				myMoveSpeed = backwardsSpeed;
+				break;
+			case TP_Animator.Direction.Left:
+				myMoveSpeed = strafingSpeed;
+				break;
+			case TP_Animator.Direction.Right:
+				myMoveSpeed = strafingSpeed;
+				break;
+			case TP_Animator.Direction.LeftForward:
+				myMoveSpeed = forwardSpeed;
+				break;
+			case TP_Animator.Direction.RightForward:
+				myMoveSpeed = forwardSpeed;
+				break;
+			case TP_Animator.Direction.LeftBackward:
+				myMoveSpeed = backwardsSpeed;
+				break;
+			case TP_Animator.Direction.RightBackward:
+				myMoveSpeed = backwardsSpeed;
+				break;
+			default:			
+				myMoveSpeed = 0;
+				break;
+		}
+
+		if (slideDirection.magnitude > 0)
+		{
+			myMoveSpeed = slideSpeed;
+		}
+
+		return myMoveSpeed;
+	}
 }
