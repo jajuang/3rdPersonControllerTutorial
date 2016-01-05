@@ -35,18 +35,6 @@ public class TP_Controller : MonoBehaviour {
 
 		// Tell TP_Motor to update
 		TP_Motor._instance.UpdateMotor ();
-
-
-
-
-		// Face charcter to direction is moving
-		//Vector3 NextDir = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
-		//if (NextDir != Vector3.zero) {
-		//	transform.rotation = Quaternion.LookRotation (NextDir);
-		//}
-		////_characterController.Move(NextDir / 8);
-
-
 	}
 
 
@@ -74,6 +62,26 @@ public class TP_Controller : MonoBehaviour {
 		}
 
 		TP_Animator._instance.DetermineCurrentMoveDirection();
+
+
+		// Rotate charcater based on direction user is inputting
+		var characterRotation = Vector3.zero;
+		switch (TP_Animator._instance.MoveDirection)
+		{
+			case TP_Animator.Direction.Forward:
+				characterRotation += new Vector3(0,90,0);
+				transform.rotation = Quaternion.Euler(characterRotation);
+				break;
+			case TP_Animator.Direction.Backward:
+				break;
+			case TP_Animator.Direction.Left:
+				break;
+			case TP_Animator.Direction.Right:
+				break;
+			default:
+				break;
+		}
+
 	}
 	
 	// Gets user input for character actions
@@ -84,12 +92,20 @@ public class TP_Controller : MonoBehaviour {
 			Jump();
 		}
 
-		if (Input.GetAxis("Trigger Left")!=0)
+		if (Input.GetButton("Bumper Left"))
 		{
+			// TODO
 			Debug.Log ("TODO: reset camera - see commented out link");
 			// http://answers.unity3d.com/questions/405954/3rd-person-free-camera-based-in-3d-buzzs-tutorial.html
-			TP_Camera._instance.Reset();
-			//TP_Motor._instance.SnapAlignCharacterWithCamera();
+			TP_Camera._instance.PutCameraBehindCharacter();
+		}
+		if (Input.GetAxis("Trigger Left")!=0)
+		{
+			TP_Camera._instance.RotateCameraLeft();
+		}
+		if (Input.GetAxis("Trigger Right")!=0)
+		{
+			TP_Camera._instance.RotateCameraRight();
 		}
 	}
 

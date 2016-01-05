@@ -12,13 +12,13 @@ public class TP_Camera : MonoBehaviour
 	public float distanceMax = 20f;
 	public float SmoothDuration = 0.05f;
 	public float distanceResumeSmooth = 1f; // smoothing factor for moving back to desired distance when occluded 
-	public float X_RotationSensitivity = 2f;
-	public float Y_RotationSensitivity = 2f;
+	public float X_RotationSensitivity = 3f;
+	public float Y_RotationSensitivity = 2.5f;
 	public float ZoomSensitivity = 20f;
 	public float X_Smooth = 0.05f; 
 	public float Y_Smooth = 0.05f; 
-	public float Y_MinLimit = -40;
-	public float Y_MaxLimit = 80;
+	public float Y_MinLimit = 5; // min angle
+	public float Y_MaxLimit = 50; // max angle
 	public float OcclusionDistanceStep = 0.5f;
 	public int MaxOcclusionChecks = 10;
 
@@ -40,6 +40,9 @@ public class TP_Camera : MonoBehaviour
 	private float analogTheshold = 0.6f; // so the analog stick doesn't keep goingggggggggg
 
 
+	private Vector3 lookDir;
+
+
 	void Awake()
 	{
 		_instance = this;
@@ -50,6 +53,8 @@ public class TP_Camera : MonoBehaviour
 		distance = Mathf.Clamp(distance, distanceMin, distanceMax);
 		startDistance = distance;
 		Reset();
+
+		lookDir = TargetLookAt.forward;
 	}
 	
 	void LateUpdate()
@@ -67,8 +72,9 @@ public class TP_Camera : MonoBehaviour
 		} while (CheckIfOccluded(count));
 
 		//CheckCameraPoints (TargetLookAt.position, desiredPosition);
-		UpdatePosition ();		
+		UpdatePosition();	
 	}
+
 	
 	void HandlePlayerInput()
 	{
@@ -117,6 +123,7 @@ public class TP_Camera : MonoBehaviour
 		return TargetLookAt.position + myRotation * myDirection;
 	}
 
+	#region Occluded
 
 	bool CheckIfOccluded(int count)
 	{		
@@ -148,7 +155,6 @@ public class TP_Camera : MonoBehaviour
 
 		return isOccluded;
 	}
-
 
 	// If nothing is hit, then it returns -1
 	float CheckCameraPoints(Vector3 from, Vector3 to) 
@@ -204,8 +210,6 @@ public class TP_Camera : MonoBehaviour
 
 	bool IsCameraIgnoreOcclusion (RaycastHit hitInfo){
 		bool isIgnored = false;
-		Debug.Log (hitInfo.collider.gameObject.layer );
-		Debug.Log (LayerMask.NameToLayer("Ignore Camera Occlusion"));
 		if (hitInfo.collider.tag == "Player" 
 		    || hitInfo.collider.gameObject.layer == LayerMask.NameToLayer("Ignore Camera Occlusion")) 
 		{
@@ -213,6 +217,9 @@ public class TP_Camera : MonoBehaviour
 		}
 		return isIgnored;
 	}
+
+
+	#endregion
 
 	// Reset desired distance fro when occluded
 	void ResetDesiredDistance()
@@ -249,10 +256,46 @@ public class TP_Camera : MonoBehaviour
 	public void Reset()
 	{
 		rotationX = 0;
-		rotationY = 10;
+		rotationY = 25;
 		distance = startDistance;
 		desiredDistance = distance;
 		preOccludedDistance = distance;
+	}
+	
+	public void PutCameraBehindCharacter()
+	{	
+		// TODO: Make this actually work asdgfhj
+		var rotX = 0f;
+
+		// Is the character moving?
+		if (TP_Animator._instance.IsMoving()) 
+		{
+			// take the localMoveDirection 
+			Debug.Log ("Moving direction");
+		} 
+		else
+		{
+			// take the rootDirection
+			Debug.Log ("Stationary direction");
+			rotX = Vector3.Angle(Camera.main.transform.position, TP_Motor._instance.stationaryDirection);
+			Debug.Log (Vector3.Angle(Camera.main.transform.position, TP_Motor._instance.stationaryDirection));
+		}
+
+		//Camera.main.transform.localRotation = myLocRot;
+
+		rotationX = 0;
+		rotationY = 25;
+		distance = startDistance;
+		desiredDistance = distance;
+		preOccludedDistance = distance;
+	}
+
+	public void RotateCameraLeft(){		
+		rotationX -= X_RotationSensitivity;
+	}
+
+	public void RotateCameraRight() {
+		rotationX += X_RotationSensitivity;
 	}
 
 	public static void UseExisitingOrCreateNewMainCamera()

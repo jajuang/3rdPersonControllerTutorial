@@ -13,13 +13,17 @@ public class TP_Motor : MonoBehaviour {
 	public float backwardsSpeed = 10f;
 	public float strafingSpeed = 10f;
 	public float slideSpeed = 10f;
-	public float jumpSpeed = 6f;
+	public float jumpSpeed = 12f;
 	public float gravity = 21f;
 	public float terminalVelocity = 20f;
 	public float slideThreshold = 0.7f;
 	public float maxControllableSlideMagnitude = 0.4f; // the max angle you can move up on (without jumping)
 
 	private Vector3 slideDirection;
+	public Vector3 localMoveDirection { get; set; } // The direction the charcter faces while moving (in relation to camera view and user's input)
+	public Vector3 stationaryDirection { get; set; }  // The direction the character faces when stationary (in relation to camera view and user's input)
+
+	public Vector3 cameraBehind { get; set; }
 
 	public Vector3 MoveVector { get; set; }
 	public float VerticalVelocity { get; set; }
@@ -39,7 +43,6 @@ public class TP_Motor : MonoBehaviour {
 	
 	void ProcessMotion() 
 	{
-
 		// Transform MoveVector to World Space (relative to camera orientation, Also depends on SnapAlignCharacterWithCamera() for ref of rotation)
 		MoveVector = transform.TransformDirection (MoveVector);
 		
@@ -63,7 +66,62 @@ public class TP_Motor : MonoBehaviour {
 
 		// Move the character
 		TP_Controller._characterController.Move(MoveVector * Time.deltaTime);
+
+
+		
+		float directionOut = 0f;
+		float speedOut = 0f;
+		float angleOut = 0f;
+		StickToWorldspace (this.transform, Camera.main.transform, ref directionOut, ref speedOut, ref angleOut, false);
+		// Face charcter to direction it is moving relative to the camera
+		if (localMoveDirection != Vector3.zero) {
+			transform.localRotation = Quaternion.LookRotation (localMoveDirection);
+		}
 	}
+
+
+	//https://www.youtube.com/watch?v=lnguV1v38z4&index=8&list=PLKFvhfT4QOqlEReJ2lSZJk_APVq5sxZ-x
+	public void StickToWorldspace(Transform root, Transform camera, ref float directionOut, ref float speedOut, ref float angleOut, bool isPivoting)
+	{
+		var inputX = Input.GetAxis("Horizontal");
+		var inputY = Input.GetAxis("Vertical");	
+		
+		stationaryDirection = root.forward;
+
+		// The direction of the user's input (in relation to world view)
+		Vector3 stickDirection = new Vector3(inputX, 0, inputY);
+		
+		speedOut = stickDirection.sqrMagnitude;		
+		
+		// Get camera rotation
+		Vector3 CameraDirection = camera.forward;
+		CameraDirection.y = 0.0f; // kill Y
+		Quaternion referentialShift = Quaternion.FromToRotation(Vector3.forward, Vector3.Normalize(CameraDirection));
+		
+		// Convert joystick input in Worldspace coordinates
+		// The direction of the user's input (in relation to camera view)
+		localMoveDirection = referentialShift * stickDirection; 		// Offset of camera and where user input is pointing
+		cameraBehind =  referentialShift * stickDirection; 		// Offset of camera and where user input is pointing
+
+		Vector3 axisSign = Vector3.Cross(localMoveDirection, stationaryDirection);
+		
+		Debug.DrawRay(new Vector3(root.position.x, root.position.y + 2f, root.position.z), localMoveDirection, Color.green);
+		Debug.DrawRay(new Vector3(root.position.x, root.position.y + 2f, root.position.z), stationaryDirection, Color.magenta);
+		Debug.DrawRay(new Vector3(root.position.x, root.position.y + 2f, root.position.z), stickDirection, Color.blue);
+		Debug.DrawRay(new Vector3(root.position.x, root.position.y + 2.5f, root.position.z), axisSign, Color.red); // positive=facing up and negative=facing down
+
+
+		float angleRootToMove = Vector3.Angle(stationaryDirection, localMoveDirection) * (axisSign.y >= 0 ? -1f : 1f);
+		if (!isPivoting)
+		{
+			angleOut = angleRootToMove;
+		}
+		angleRootToMove /= 180f;
+		
+		directionOut = angleRootToMove; // * directionSpeed;
+	}	
+
+
 
 
 	void ApplyGravity() 
